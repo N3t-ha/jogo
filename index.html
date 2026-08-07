@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Cyber Defender - Um jogo arcade sci-fi retro-futurista criado em HTML5 Canvas com sistema de versão Git integrável ao GitHub.">
+  <meta name="keywords" content="jogo web, canvas html5, arcade, sci-fi, shooter, github pages, javascript">
+  <meta name="author" content="Desenvolvedor Antigravity">
+  <title>Cyber Defender | Jogo Web Arcade Sci-Fi</title>
+  
+  <!-- Fontes Google -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  
+  <!-- Estilos da Aplicação -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app-container">
+    <!-- Cabeçalho / Barra de Navegação -->
+    <header class="app-header">
+      <div class="brand">
+        <span class="logo-icon">⚡</span>
+        <h1 class="game-title">CYBER DEFENDER</h1>
+        <span class="version-badge" id="versionTag">v1.0.0</span>
+      </div>
+      <div class="header-controls">
+        <button id="btnSoundToggle" class="icon-btn" title="Alternar Som (Muta/Desmuta)">
+          <span id="soundIcon">🔊</span>
+        </button>
+        <button id="btnGDDModal" class="btn btn-secondary btn-sm">
+          📋 Especificações do GDD
+        </button>
+        <button id="btnGitHelp" class="btn btn-secondary btn-sm">
+          🔄 Guia de Rollback (Git)
+        </button>
+      </div>
+    </header>
+
+    <!-- Área Principal do Jogo -->
+    <main class="game-wrapper">
+      <!-- Elemento Canvas -->
+      <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+      <!-- Overlay de HUD (Em Jogo) -->
+      <div id="hudOverlay" class="hud-layer hidden">
+        <div class="hud-top">
+          <div class="stat-box">
+            <span class="stat-label">PONTOS</span>
+            <span id="hudScore" class="stat-value">000000</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">ONDA</span>
+            <span id="hudWave" class="stat-value">1</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">MULTIPLICADOR</span>
+            <span id="hudMultiplier" class="stat-value">x1.0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">RECORD</span>
+            <span id="hudHighScore" class="stat-value">000000</span>
+          </div>
+        </div>
+
+        <div class="hud-bottom">
+          <div class="health-bar-container">
+            <span class="bar-label">ESCUDO DA NAVE</span>
+            <div class="bar-track">
+              <div id="healthFill" class="bar-fill health-fill" style="width: 100%;"></div>
+            </div>
+          </div>
+          <div class="energy-bar-container">
+            <span class="bar-label">ENERGIA DO LASER</span>
+            <div class="bar-track">
+              <div id="energyFill" class="bar-fill energy-fill" style="width: 100%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tela Inicial / Menu Principal -->
+      <div id="menuOverlay" class="overlay-screen active">
+        <div class="glass-card menu-card">
+          <div class="hero-badge">JOGO WEB ARCADE</div>
+          <h2 class="hero-title">CYBER DEFENDER</h2>
+          <p class="hero-subtitle">Defenda a galáxia cibernética contra hordas de drones invasores. Pontue alto, destrua chefões e domine a tabela!</p>
+
+          <div class="controls-guide">
+            <h3>Controles:</h3>
+            <div class="key-grid">
+              <div class="key-item"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ou <kbd>Setas</kbd> <span>Mover Nave</span></div>
+              <div class="key-item"><kbd>Espaço</kbd> ou <kbd>Clique Esq.</kbd> <span>Atirar</span></div>
+              <div class="key-item"><kbd>Shift</kbd> <span>Super Boost</span></div>
+              <div class="key-item"><kbd>P</kbd> ou <kbd>Esc</kbd> <span>Pausar</span></div>
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <button id="btnStartGame" class="btn btn-primary btn-lg">
+              🚀 INICIAR JOGO
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tela de Pausa -->
+      <div id="pauseOverlay" class="overlay-screen hidden">
+        <div class="glass-card dialog-card">
+          <h2>JOGO PAUSADO</h2>
+          <p>Pressione <kbd>P</kbd> para retomar ou escolha uma opção abaixo:</p>
+          <div class="action-buttons vertical">
+            <button id="btnResume" class="btn btn-primary btn-md">▶ Continuar</button>
+            <button id="btnRestartPause" class="btn btn-secondary btn-md">🔄 Reiniciar</button>
+            <button id="btnQuitMenu" class="btn btn-danger btn-md">🏠 Menu Principal</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tela de Game Over -->
+      <div id="gameOverOverlay" class="overlay-screen hidden">
+        <div class="glass-card dialog-card">
+          <h2 class="title-danger">MISSÃO FALHOU</h2>
+          <p>Sua nave foi destruída em combate!</p>
+          
+          <div class="score-summary">
+            <div class="summary-item">
+              <span>Pontuação Final:</span>
+              <strong id="finalScore">0</strong>
+            </div>
+            <div class="summary-item">
+              <span>Ondas Sobrevividas:</span>
+              <strong id="finalWave">0</strong>
+            </div>
+            <div class="summary-item">
+              <span>Novo Recorde:</span>
+              <strong id="newRecordBadge">NÃO</strong>
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <button id="btnRestartGame" class="btn btn-primary btn-lg">🔄 JOGAR NOVAMENTE</button>
+            <button id="btnGameOverMenu" class="btn btn-secondary btn-lg">🏠 MENU</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de Especificações do GDD -->
+      <div id="gddModal" class="modal-backdrop hidden">
+        <div class="glass-card modal-card">
+          <div class="modal-header">
+            <h2>📋 Game Design Document (GDD) & Personalização</h2>
+            <button id="btnCloseGDD" class="close-btn">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p>Este jogo foi desenvolvido com arquitetura modular de alta performance. Caso você queira adaptar o jogo para as especificações exatas do seu GDD, todos os sistemas são configuráveis:</p>
+
+            <div class="gdd-section">
+              <h3>🎮 Estrutura de Mecânicas Atuais</h3>
+              <ul>
+                <li><strong>Gênero:</strong> Arcade Space Shooter 2D com física suave e partículas.</li>
+                <li><strong>Sistemas de Entidades:</strong> Jogador, Tiros, Inimigos (Scout, Heavy, Boss) e Power-ups (Escudo, Laser Triplo, Boost).</li>
+                <li><strong>Áudio Dinâmico:</strong> Sintetizado via Web Audio API (não necessita carregar arquivos MP3/WAV externos).</li>
+                <li><strong>Salva de Progresso:</strong> Recordes mantidos via LocalStorage.</li>
+              </ul>
+            </div>
+
+            <div class="gdd-section">
+              <h3>⚙️ Como aplicar seu GDD personalizado:</h3>
+              <p>Você pode alterar os parâmetros de velocidade, vida, cores e comportamento direto nos arquivos JavaScript dentro de <code>src/js/entities.js</code> e <code>src/js/game.js</code>.</p>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button id="btnCloseGDD2" class="btn btn-secondary btn-md">Fechar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de Instruções do Git e Rollback -->
+      <div id="gitModal" class="modal-backdrop hidden">
+        <div class="glass-card modal-card">
+          <div class="modal-header">
+            <h2>🔄 Como Funciona o Sistema de Rollback & Git</h2>
+            <button id="btnCloseGit" class="close-btn">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p>Seu projeto conta com histórico de versões comitadas via Git na pasta <code>C:\Users\Aluno\Documents\GitHub\jogo</code>. Caso você altere o código e queira **voltar a uma versão funcional**, siga as instruções:</p>
+
+            <div class="code-block">
+              <h4>1. Ver histórico de edições comitadas:</h4>
+              <pre><code>git log --oneline</code></pre>
+
+              <h4>2. Cancelar alterações locais não salvas:</h4>
+              <pre><code>git reset --hard HEAD</code></pre>
+
+              <h4>3. Restaurar uma versão marcada por tag (ex: v1.0.0):</h4>
+              <pre><code>git checkout v1.0.0</code></pre>
+
+              <h4>4. Enviar o jogo pronto para o seu repositório no GitHub:</h4>
+              <pre><code>git add .
+git commit -m "feat: versão final do jogo"
+git remote add origin https://github.com/SEU-USUARIO/SEU-REPOSISTORIO.git
+git branch -M main
+git push -u origin main</code></pre>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button id="btnCloseGit2" class="btn btn-secondary btn-md">Entendi</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="app-footer">
+      <p>Desenvolvido com HTML5 Canvas & Vanilla JS • Repositório Git Ativo • Pronto para GitHub Pages</p>
+    </footer>
+  </div>
+
+  <!-- Scripts do Jogo -->
+  <script src="src/js/audio.js"></script>
+  <script src="src/js/particles.js"></script>
+  <script src="src/js/entities.js"></script>
+  <script src="src/js/game.js"></script>
+</body>
+</html>
