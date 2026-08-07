@@ -1,380 +1,249 @@
 /* ==========================================================================
-   CYBER DEFENDER - ENTIDADES DO JOGO
-   Classes para Jogador, Tiros, Inimigos (Scouts, Chasers, Heavies, Boss) e Power-ups.
+   PROJECT HUNT - ENTIDADES 3D DO JOGO (Assassino & IA dos Sobreviventes)
+   Lógica do Assassino (Humano) e IA de Sobreviventes (FSM com ganchos e Mori).
    ========================================================================== */
 
-// --- NAVE DO JOGADOR ---
-class Player {
-  constructor(canvasWidth, canvasHeight) {
-    this.cw = canvasWidth;
-    this.ch = canvasHeight;
-    this.width = 44;
-    this.height = 44;
-    this.x = canvasWidth / 2;
-    this.y = canvasHeight - 100;
+// --- ASSASSINO (JOGADOR HUMANO - 1ª PESSOA) ---
+class Killer3D {
+  constructor(scene, camera) {
+    this.scene = scene;
+    this.camera = camera;
     
-    this.speed = 7;
-    this.vx = 0;
-    this.vy = 0;
-    
-    this.maxHealth = 100;
-    this.health = 100;
-    this.maxEnergy = 100;
-    this.energy = 100;
-    
-    this.weaponType = 'single'; // 'single', 'triple', 'beam'
-    this.weaponTimer = 0;
-    
-    this.shieldActive = false;
-    this.shieldTimer = 0;
-    
-    this.lastShootTime = 0;
-    this.shootCooldown = 120; // ms
+    this.speed = 0.22; // Equivale a 4.6 m/s
+    this.x = 0;
+    this.y = 1.8; // Altura dos olhos
+    this.z = 25;
+
+    this.pitch = 0;
+    this.yaw = 0;
+
+    this.isCarrying = null; // Referência do sobrevivente sendo carregado
+    this.isAttacking = false;
+    this.attackCooldown = 0;
+
+    // Lanternas / Luz de foco do Assassino
+    this.spotLight = new THREE.SpotLight(0xff1a3c, 2, 25, Math.PI / 6, 0.5);
+    this.spotLight.position.set(0, 1.8, 0);
+    this.scene.add(this.spotLight);
+    this.scene.add(this.spotLight.target);
   }
 
-  update(keys, particleSystem) {
-    // Movimentação fluida com inércia
-    let inputX = 0;
-    let inputY = 0;
+  update(keys, mouseDelta, map3D) {
+    if (this.attackCooldown > 0) this.attackCooldown -= 1;
 
-    if (keys['KeyW'] || keys['ArrowUp']) inputY -= 1;
-    if (keys['KeyS'] || keys['ArrowDown']) inputY += 1;
-    if (keys['KeyA'] || keys['ArrowLeft']) inputX -= 1;
-    if (keys['KeyD'] || keys['ArrowRight']) inputX += 1;
-
-    // Normalização em movimento diagonal
-    if (inputX !== 0 && inputY !== 0) {
-      inputX *= 0.7071;
-      inputY *= 0.7071;
+    // Rotação da câmera (PointerLock Mouse)
+    if (mouseDelta) {
+      this.yaw -= mouseDelta.x * 0.002;
+      this.pitch -= mouseDelta.y * 0.002;
+      this.pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, this.pitch));
     }
 
-    // Boost com Shift
-    let currentSpeed = this.speed;
-    if (keys['ShiftLeft'] || keys['ShiftRight']) {
-      if (this.energy > 5) {
-        currentSpeed *= 1.6;
-        this.energy -= 0.6;
-        particleSystem.createThrusterTrail(this.x, this.y + 20, '#ff0077');
-      }
+    // Vetores de Movimentação WASD em 3D
+    let moveForward = 0;
+    let moveRight = 0;
+
+    if (keys['KeyW'] || keys['ArrowUp']) moveForward += 1;
+    if (keys['KeyS'] || keys['ArrowDown']) moveForward -= 1;
+    if (keys['KeyA'] || keys['ArrowLeft']) moveRight -= 1;
+    if (keys['KeyD'] || keys['ArrowRight']) moveRight += 1;
+
+    // Reduz velocidade se estiver carregando um sobrevivente
+    let currentSpeed = this.isCarrying ? this.speed * 0.75 : this.speed;
+
+    const dirX = Math.sin(this.yaw) * moveForward + Math.cos(this.yaw) * moveRight;
+    const dirZ = Math.cos(this.yaw) * moveForward - Math.sin(this.yaw) * moveRight;
+
+    this.x += dirX * currentSpeed;
+    this.z -= dirZ * currentSpeed;
+
+    // Restrição de limites do mapa
+    const half = map3D.mapSize / 2 - 2;
+    this.x = Math.max(-half, Math.min(half, this.x));
+    this.z = Math.max(-half, Math.min(half, this.z));
+
+    // Atualiza posição da câmera 3D
+    this.camera.position.set(this.x, this.y, this.z);
+
+    const targetX = this.x - Math.sin(this.yaw) * Math.cos(this.pitch);
+    const targetY = this.y + Math.sin(this.pitch);
+    const targetZ = this.z - Math.cos(this.yaw) * Math.cos(this.pitch);
+
+    this.camera.lookAt(targetX, targetY, targetZ);
+
+    // Atualiza lanterna spotlight
+    this.spotLight.position.set(this.x, this.y, this.z);
+    this.spotLight.target.position.set(targetX, targetY, targetZ);
+
+    // Atualiza posição do sobrevivente carregado no ombro
+    if (this.isCarrying) {
+      this.isCarrying.mesh.position.set(this.x + Math.sin(this.yaw) * 0.8, this.y, this.z - Math.cos(this.yaw) * 0.8);
+    }
+  }
+
+  attack() {
+    if (this.attackCooldown > 0) return false;
+    this.attackCooldown = 40;
+    this.isAttacking = true;
+    soundManager.playSlash();
+    return true;
+  }
+}
+
+// --- SOBREVIVENTE CONTROLADO POR IA (FSM) ---
+class SurvivorAI3D {
+  constructor(scene, id, x, z) {
+    this.scene = scene;
+    this.id = id;
+    this.name = `Sobrevivente #${id}`;
+
+    this.x = x;
+    this.y = 1.0;
+    this.z = z;
+    this.speed = 0.16; // Sobrevivente 4.0 m/s
+
+    // Estados da IA FSM: 'PATROL', 'REPAIRING', 'FLEEING', 'RESCUING', 'OPENING_GATE', 'ESCAPED'
+    this.aiState = 'PATROL';
+
+    // Estados de Saúde: 'Healthy', 'Wounded', 'Downed', 'Carried', 'Hooked', 'Dead'
+    this.healthState = 'Healthy';
+
+    this.hookCount = 0; // 0 ➔ 1 ➔ 2 (Mori liberado)
+    this.targetGenerator = null;
+    this.targetHook = null;
+
+    this.mesh = this.createMesh();
+    this.mesh.position.set(this.x, this.y, this.z);
+    this.scene.add(this.mesh);
+  }
+
+  createMesh() {
+    const group = new THREE.Group();
+
+    // Corpo humanoid simples
+    const bodyGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.8, 8);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00ff88, roughness: 0.5 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = 0.9;
+    group.add(body);
+
+    const headGeo = new THREE.SphereGeometry(0.35, 12, 12);
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xffccaa });
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.y = 2.0;
+    group.add(head);
+
+    this.bodyMat = bodyMat;
+    return group;
+  }
+
+  update(killer, map3D, onNoisePing) {
+    if (this.healthState === 'Dead' || this.healthState === 'Carried' || this.aiState === 'ESCAPED') return;
+
+    // Se estiver no gancho, não se move
+    if (this.healthState === 'Hooked') return;
+
+    // Se estiver Caído (Downed), rasteja devagar
+    if (this.healthState === 'Downed') {
+      this.speed = 0.04;
     } else {
-      this.energy = Math.min(this.maxEnergy, this.energy + 0.3); // Recarrega energia
+      this.speed = 0.16;
     }
 
-    this.vx = inputX * currentSpeed;
-    this.vy = inputY * currentSpeed;
+    const distToKiller = Math.hypot(this.x - killer.x, this.z - killer.z);
 
-    this.x += this.vx;
-    this.y += this.vy;
+    // --- MÁQUINA DE ESTADOS FINITOS (FSM) ---
 
-    // Restrições de borda da tela
-    const padding = 24;
-    this.x = Math.max(padding, Math.min(this.cw - padding, this.x));
-    this.y = Math.max(padding, Math.min(this.ch - padding, this.y));
-
-    // Rastro normal de propulsor
-    particleSystem.createThrusterTrail(this.x, this.y + 20, '#00f0ff');
-
-    // Timers de Buffs
-    if (this.weaponTimer > 0) {
-      this.weaponTimer -= 1;
-      if (this.weaponTimer <= 0) this.weaponType = 'single';
+    // 1. Reação ao Assassino (FLEEING)
+    if (distToKiller < 18 && this.healthState !== 'Downed') {
+      this.aiState = 'FLEEING';
     }
 
-    if (this.shieldTimer > 0) {
-      this.shieldTimer -= 1;
-      if (this.shieldTimer <= 0) this.shieldActive = false;
-    }
-  }
+    if (this.aiState === 'FLEEING') {
+      // Foge na direção oposta ao assassino
+      const dx = this.x - killer.x;
+      const dz = this.z - killer.z;
+      const len = Math.hypot(dx, dz) || 1;
 
-  draw(ctx) {
-    ctx.save();
-    ctx.translate(this.x, this.y);
+      this.x += (dx / len) * this.speed;
+      this.z += (dz / len) * this.speed;
 
-    // Efeito de Escudo Ativo
-    if (this.shieldActive) {
-      ctx.strokeStyle = '#00f0ff';
-      ctx.lineWidth = 3;
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = '#00f0ff';
-      ctx.beginPath();
-      ctx.arc(0, 0, this.width * 0.85, 0, Math.PI * 2);
-      ctx.stroke();
-    }
+      if (distToKiller > 25) {
+        this.aiState = 'PATROL';
+      }
+    } else if (this.aiState === 'PATROL') {
+      // Encontra o gerador não concluído mais próximo
+      if (!this.targetGenerator || this.targetGenerator.completed) {
+        this.targetGenerator = map3D.generators.find(g => !g.completed);
+      }
 
-    // Corpo da Nave Cyberpunk (Desenho Vetorial Canvas)
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = '#00f0ff';
-    ctx.fillStyle = '#0a1024';
-    ctx.strokeStyle = '#00f0ff';
-    ctx.lineWidth = 2;
+      if (this.targetGenerator) {
+        const dx = this.targetGenerator.x - this.x;
+        const dz = this.targetGenerator.z - this.z;
+        const dist = Math.hypot(dx, dz);
 
-    // Asas e fuselagem
-    ctx.beginPath();
-    ctx.moveTo(0, -this.height / 2); // Bico
-    ctx.lineTo(this.width / 2, this.height / 2); // Asa Dir
-    ctx.lineTo(this.width / 4, this.height / 3);
-    ctx.lineTo(0, this.height / 2.5);
-    ctx.lineTo(-this.width / 4, this.height / 3);
-    ctx.lineTo(-this.width / 2, this.height / 2); // Asa Esq
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+        if (dist > 2.0) {
+          this.x += (dx / dist) * this.speed;
+          this.z += (dz / dist) * this.speed;
+        } else {
+          this.aiState = 'REPAIRING';
+        }
+      }
+    } else if (this.aiState === 'REPAIRING') {
+      if (this.targetGenerator && !this.targetGenerator.completed) {
+        this.targetGenerator.progress += 0.12; // Avanço no gerador
 
-    // Cabine Iluminada (Cockpit)
-    ctx.fillStyle = '#ff0077';
-    ctx.shadowColor = '#ff0077';
-    ctx.beginPath();
-    ctx.arc(0, -4, 6, 0, Math.PI * 2);
-    ctx.fill();
+        // Chance aleatória de falhar no Skill Check
+        if (Math.random() < 0.003) {
+          soundManager.playSkillCheckFail();
+          if (onNoisePing) onNoisePing(this.x, this.z);
+        }
 
-    ctx.restore();
-  }
-
-  canShoot(now) {
-    return (now - this.lastShootTime) >= this.shootCooldown;
-  }
-
-  shoot(now) {
-    this.lastShootTime = now;
-    const bullets = [];
-
-    if (this.weaponType === 'single') {
-      bullets.push(new Bullet(this.x, this.y - 20, 0, -14, '#00f0ff', true));
-    } else if (this.weaponType === 'triple') {
-      bullets.push(new Bullet(this.x, this.y - 20, 0, -14, '#00f0ff', true));
-      bullets.push(new Bullet(this.x - 12, this.y - 10, -2.5, -13, '#ff0077', true));
-      bullets.push(new Bullet(this.x + 12, this.y - 10, 2.5, -13, '#ff0077', true));
-    } else if (this.weaponType === 'beam') {
-      bullets.push(new Bullet(this.x, this.y - 25, 0, -20, '#ffb700', true, 10, 35));
+        if (this.targetGenerator.progress >= 100) {
+          this.targetGenerator.progress = 100;
+          this.targetGenerator.completed = true;
+          this.targetGenerator.topLight.material.color.setHex(0x00ff88);
+          this.targetGenerator.pointLight.color.setHex(0x00ff88);
+          this.aiState = 'PATROL';
+        }
+      } else {
+        this.aiState = 'PATROL';
+      }
     }
 
-    return bullets;
+    // Restrição dos limites do mapa
+    const half = map3D.mapSize / 2 - 2;
+    this.x = Math.max(-half, Math.min(half, this.x));
+    this.z = Math.max(-half, Math.min(half, this.z));
+
+    this.mesh.position.set(this.x, this.y, this.z);
+    this.updateVisualState();
   }
 
-  takeDamage(amount) {
-    if (this.shieldActive) {
-      amount *= 0.25; // Reduz 75% do dano se estiver de escudo
-    }
-    this.health = Math.max(0, this.health - amount);
-  }
-}
-
-// --- PROJÉTEIS (TIROS) ---
-class Bullet {
-  constructor(x, y, vx, vy, color, isPlayer = true, width = 4, height = 14) {
-    this.x = x;
-    this.y = y;
-    this.vx = vx;
-    this.vy = vy;
-    this.color = color;
-    this.isPlayer = isPlayer;
-    this.width = width;
-    this.height = height;
-    this.markedForDeletion = false;
-  }
-
-  update(cw, ch) {
-    this.x += this.vx;
-    this.y += this.vy;
-
-    if (this.x < -20 || this.x > cw + 20 || this.y < -20 || this.y > ch + 20) {
-      this.markedForDeletion = true;
+  updateVisualState() {
+    if (this.healthState === 'Healthy') {
+      this.bodyMat.color.setHex(0x00ff88);
+    } else if (this.healthState === 'Wounded') {
+      this.bodyMat.color.setHex(0xffaa00);
+    } else if (this.healthState === 'Downed') {
+      this.bodyMat.color.setHex(0xff1a3c);
+      this.mesh.rotation.z = Math.PI / 2; // Deitado no chão
+    } else if (this.healthState === 'Hooked') {
+      this.bodyMat.color.setHex(0xb800ff);
+    } else if (this.healthState === 'Dead') {
+      this.bodyMat.color.setHex(0x333344);
     }
   }
 
-  draw(ctx) {
-    ctx.save();
-    ctx.fillStyle = this.color;
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = this.color;
-    ctx.fillRect(this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
-    ctx.restore();
-  }
-}
-
-// --- INIMIGOS ---
-class Enemy {
-  constructor(x, y, type = 'scout', wave = 1) {
-    this.x = x;
-    this.y = y;
-    this.type = type;
-    this.markedForDeletion = false;
-    this.time = Math.random() * 100;
-
-    if (type === 'scout') {
-      this.width = 30;
-      this.height = 30;
-      this.hp = 1 + Math.floor(wave * 0.3);
-      this.speed = 3 + Math.random() * 1.5;
-      this.color = '#ff0077';
-      this.scoreValue = 100;
-    } else if (type === 'chaser') {
-      this.width = 36;
-      this.height = 36;
-      this.hp = 3 + Math.floor(wave * 0.5);
-      this.speed = 2.5;
-      this.color = '#ffb700';
-      this.scoreValue = 250;
-    } else if (type === 'heavy') {
-      this.width = 54;
-      this.height = 54;
-      this.hp = 8 + wave;
-      this.speed = 1.2;
-      this.color = '#00ff88';
-      this.scoreValue = 500;
-    } else if (type === 'boss') {
-      this.width = 110;
-      this.height = 90;
-      this.hp = 60 + (wave * 25);
-      this.maxHp = this.hp;
-      this.speed = 1.5;
-      this.color = '#ff0055';
-      this.scoreValue = 3000;
-      this.direction = 1;
+  takeHit() {
+    if (this.healthState === 'Healthy') {
+      this.healthState = 'Wounded';
+      soundManager.playHitSound();
+      return 'wounded';
+    } else if (this.healthState === 'Wounded') {
+      this.healthState = 'Downed';
+      soundManager.playHitSound();
+      return 'downed';
     }
-  }
-
-  update(cw, ch, playerX, playerY) {
-    this.time += 0.05;
-
-    if (this.type === 'scout') {
-      this.y += this.speed;
-      this.x += Math.sin(this.time) * 2;
-    } else if (this.type === 'chaser') {
-      this.y += this.speed * 0.7;
-      // Persegue suavemente o jogador
-      if (this.x < playerX) this.x += 1;
-      else if (this.x > playerX) this.x -= 1;
-    } else if (this.type === 'heavy') {
-      this.y += this.speed;
-    } else if (this.type === 'boss') {
-      // Movimento lateral na parte superior
-      if (this.y < 120) this.y += 1;
-      this.x += this.speed * this.direction;
-      if (this.x > cw - 80 || this.x < 80) this.direction *= -1;
-    }
-
-    if (this.y > ch + 50) {
-      this.markedForDeletion = true;
-    }
-  }
-
-  draw(ctx) {
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = this.color;
-    ctx.strokeStyle = this.color;
-    ctx.lineWidth = 2;
-    ctx.fillStyle = '#090d1a';
-
-    if (this.type === 'scout') {
-      ctx.beginPath();
-      ctx.moveTo(0, this.height / 2);
-      ctx.lineTo(this.width / 2, -this.height / 2);
-      ctx.lineTo(-this.width / 2, -this.height / 2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    } else if (this.type === 'chaser' || this.type === 'heavy') {
-      ctx.beginPath();
-      ctx.moveTo(0, this.height / 2);
-      ctx.lineTo(this.width / 2, 0);
-      ctx.lineTo(0, -this.height / 2);
-      ctx.lineTo(-this.width / 2, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    } else if (this.type === 'boss') {
-      // Nave do Chefão complexa
-      ctx.beginPath();
-      ctx.moveTo(0, this.height / 2);
-      ctx.lineTo(this.width / 2, 0);
-      ctx.lineTo(this.width / 3, -this.height / 2);
-      ctx.lineTo(-this.width / 3, -this.height / 2);
-      ctx.lineTo(-this.width / 2, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Barra de Vida do Boss
-      ctx.restore();
-      ctx.save();
-      const barW = 100;
-      const barH = 8;
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(this.x - barW / 2, this.y - this.height / 2 - 16, barW, barH);
-      ctx.fillStyle = '#ff0055';
-      ctx.fillRect(this.x - barW / 2, this.y - this.height / 2 - 16, barW * (this.hp / this.maxHp), barH);
-      ctx.restore();
-      return;
-    }
-
-    ctx.restore();
-  }
-
-  shoot(now) {
-    if (this.type === 'heavy' && Math.random() < 0.015) {
-      return [new Bullet(this.x, this.y + 20, 0, 7, '#ff0055', false)];
-    }
-    if (this.type === 'boss' && Math.random() < 0.04) {
-      return [
-        new Bullet(this.x - 20, this.y + 30, -2, 8, '#ff0077', false),
-        new Bullet(this.x, this.y + 35, 0, 9, '#ff0055', false),
-        new Bullet(this.x + 20, this.y + 30, 2, 8, '#ff0077', false)
-      ];
-    }
-    return [];
-  }
-}
-
-// --- POWER-UPS ---
-class PowerUp {
-  constructor(x, y, type) {
-    this.x = x;
-    this.y = y;
-    this.type = type; // 'shield', 'triple', 'beam', 'health'
-    this.size = 20;
-    this.speed = 2;
-    this.markedForDeletion = false;
-    this.time = 0;
-  }
-
-  update(ch) {
-    this.y += this.speed;
-    this.time += 0.08;
-    this.x += Math.sin(this.time) * 1.2;
-
-    if (this.y > ch + 30) this.markedForDeletion = true;
-  }
-
-  draw(ctx) {
-    ctx.save();
-    ctx.translate(this.x, this.y);
-
-    let color = '#00f0ff';
-    let icon = '🛡️';
-
-    if (this.type === 'triple') { color = '#ff0077'; icon = '⚡'; }
-    if (this.type === 'beam') { color = '#ffb700'; icon = '💥'; }
-    if (this.type === 'health') { color = '#00ff88'; icon = '❤️'; }
-
-    ctx.fillStyle = 'rgba(10, 15, 30, 0.85)';
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = color;
-
-    ctx.beginPath();
-    ctx.arc(0, 0, this.size, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.font = '12px Outfit, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(icon, 0, 0);
-
-    ctx.restore();
+    return null;
   }
 }

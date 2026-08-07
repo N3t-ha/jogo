@@ -1,12 +1,13 @@
 /* ==========================================================================
-   CYBER DEFENDER - SINTETIZADOR DE ÁUDIO (Web Audio API)
-   Gera efeitos sonoros retrô-futuristas em tempo real sem carregar arquivos externos.
+   PROJECT HUNT - SINTETIZADOR DE ÁUDIO DE TERROR (Web Audio API)
+   Sons procedurais 3D para terror, batimentos cardíacos, ataques e explosões.
    ========================================================================== */
 
-class SoundManager {
+class HorrorSoundManager {
   constructor() {
     this.ctx = null;
     this.muted = false;
+    this.heartbeatTimer = null;
   }
 
   init() {
@@ -24,39 +25,117 @@ class SoundManager {
     return this.muted;
   }
 
-  // Som de tiro laser
-  playLaser() {
+  // Batimento cardíaco de proximidade do assassino
+  playHeartbeatBeat() {
     if (this.muted) return;
     this.init();
-    
+
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(800, now);
-    osc.frequency.exponentialRampToValueAtTime(100, now + 0.12);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(60, now);
+    osc.frequency.exponentialRampToValueAtTime(30, now + 0.15);
 
-    gain.gain.setValueAtTime(0.2, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+    gain.gain.setValueAtTime(0.4, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
 
     osc.start(now);
-    osc.stop(now + 0.12);
+    osc.stop(now + 0.15);
   }
 
-  // Som de explosão
-  playExplosion(isBig = false) {
+  // Golpe do Assassino (Slash)
+  playSlash() {
     if (this.muted) return;
     this.init();
 
     const now = this.ctx.currentTime;
-    const duration = isBig ? 0.6 : 0.3;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
 
-    // Criar ruído branco para a explosão
-    const bufferSize = this.ctx.sampleRate * duration;
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(600, now);
+    osc.frequency.exponentialRampToValueAtTime(100, now + 0.18);
+
+    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.18);
+  }
+
+  // Acerto no Sobrevivente (Dano)
+  playHitSound() {
+    if (this.muted) return;
+    this.init();
+
+    const now = this.ctx.currentTime;
+    
+    // Som grave de impacto
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(120, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.25);
+
+    gain.gain.setValueAtTime(0.6, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.25);
+  }
+
+  // Quebra de Pallet de Madeira
+  playPalletBreak() {
+    if (this.muted) return;
+    this.init();
+
+    const now = this.ctx.currentTime;
+    const bufferSize = this.ctx.sampleRate * 0.35;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(400, now);
+    filter.Q.setValueAtTime(2, now);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.6, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    noise.start(now);
+  }
+
+  // Explosão de Skill Check do Gerador
+  playSkillCheckFail() {
+    if (this.muted) return;
+    this.init();
+
+    const now = this.ctx.currentTime;
+
+    // Ruído da explosão
+    const bufferSize = this.ctx.sampleRate * 0.45;
     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
@@ -68,12 +147,12 @@ class SoundManager {
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(isBig ? 400 : 800, now);
-    filter.frequency.linearRampToValueAtTime(50, now + duration);
+    filter.frequency.setValueAtTime(900, now);
+    filter.frequency.exponentialRampToValueAtTime(100, now + 0.45);
 
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(isBig ? 0.5 : 0.3, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+    gain.gain.setValueAtTime(0.7, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
 
     noise.connect(filter);
     filter.connect(gain);
@@ -82,8 +161,8 @@ class SoundManager {
     noise.start(now);
   }
 
-  // Som de coleta de Power-Up
-  playPowerup() {
+  // Colocar no Gancho
+  playHookScream() {
     if (this.muted) return;
     this.init();
 
@@ -91,46 +170,22 @@ class SoundManager {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(300, now);
-    osc.frequency.setValueAtTime(500, now + 0.08);
-    osc.frequency.setValueAtTime(800, now + 0.16);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(700, now);
+    osc.frequency.linearRampToValueAtTime(450, now + 0.4);
 
-    gain.gain.setValueAtTime(0.25, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.25);
-  }
-
-  // Som de dano/escudo atingido
-  playHit() {
-    if (this.muted) return;
-    this.init();
-
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(150, now);
-    osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
-
-    gain.gain.setValueAtTime(0.3, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
 
     osc.start(now);
-    osc.stop(now + 0.15);
+    osc.stop(now + 0.5);
   }
 
-  // Som de alerta do Chefão (Boss)
-  playBossAlarm() {
+  // Execução Mori
+  playMoriExecution() {
     if (this.muted) return;
     this.init();
 
@@ -140,19 +195,41 @@ class SoundManager {
 
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(200, now);
-    osc.frequency.linearRampToValueAtTime(400, now + 0.2);
-    osc.frequency.linearRampToValueAtTime(200, now + 0.4);
+    osc.frequency.exponentialRampToValueAtTime(50, now + 0.8);
 
-    gain.gain.setValueAtTime(0.4, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+    gain.gain.setValueAtTime(0.8, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
 
     osc.start(now);
-    osc.stop(now + 0.4);
+    osc.stop(now + 0.8);
+  }
+
+  // Sirene dos Portões Energizados
+  playGateAlarm() {
+    if (this.muted) return;
+    this.init();
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(440, now);
+    osc.frequency.linearRampToValueAtTime(880, now + 0.5);
+    osc.frequency.linearRampToValueAtTime(440, now + 1.0);
+
+    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 1.0);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 1.0);
   }
 }
 
-// Instância global
-const soundManager = new SoundManager();
+const soundManager = new HorrorSoundManager();

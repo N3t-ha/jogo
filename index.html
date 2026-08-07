@@ -3,30 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Cyber Defender - Um jogo arcade sci-fi retro-futurista criado em HTML5 Canvas com sistema de versão Git integrável ao GitHub.">
-  <meta name="keywords" content="jogo web, canvas html5, arcade, sci-fi, shooter, github pages, javascript">
+  <meta name="description" content="Project Hunt - Jogo de Terror Assimétrico 3D 1v4 no navegador. Controle o Assassino e elimine os sobreviventes controlados por IA antes que reparem os 5 geradores e escapem.">
+  <meta name="keywords" content="Project Hunt, Dead by Daylight, 3D WebGL, Three.js, Jogo de Terror, 1v4, Survival Horror, GitHub Pages">
   <meta name="author" content="Desenvolvedor Antigravity">
-  <title>Cyber Defender | Jogo Web Arcade Sci-Fi</title>
-  
-  <!-- Fontes Google -->
+  <title>Project Hunt 3D | Survival Horror Assimétrico 1v4</title>
+
+  <!-- Fontes Google para Terror e Sci-Fi -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Orbitron:wght@600;900&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+  <!-- Three.js (Engine 3D WebGL via CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
   <!-- Estilos da Aplicação -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app-container">
-    <!-- Cabeçalho / Barra de Navegação -->
+    <!-- Cabeçalho de Navegação -->
     <header class="app-header">
       <div class="brand">
-        <span class="logo-icon">⚡</span>
-        <h1 class="game-title">CYBER DEFENDER</h1>
-        <span class="version-badge" id="versionTag">v1.0.0</span>
+        <span class="logo-icon">🩸</span>
+        <h1 class="game-title">PROJECT HUNT</h1>
+        <span class="version-badge" id="versionTag">v2.0.0 (3D 1v4)</span>
       </div>
       <div class="header-controls">
-        <button id="btnSoundToggle" class="icon-btn" title="Alternar Som (Muta/Desmuta)">
+        <button id="btnSoundToggle" class="icon-btn" title="Alternar Som">
           <span id="soundIcon">🔊</span>
         </button>
         <button id="btnGDDModal" class="btn btn-secondary btn-sm">
@@ -38,68 +41,118 @@
       </div>
     </header>
 
-    <!-- Área Principal do Jogo -->
+    <!-- Área Principal 3D do Jogo -->
     <main class="game-wrapper">
-      <!-- Elemento Canvas -->
-      <canvas id="gameCanvas" width="1280" height="720"></canvas>
+      <!-- Container do Canvas 3D Three.js -->
+      <div id="webgl-container"></div>
 
-      <!-- Overlay de HUD (Em Jogo) -->
+      <!-- Mira do Assassino (Crosshair) -->
+      <div id="crosshair" class="crosshair hidden">+</div>
+
+      <!-- Notificação de Notícia / Ruído Alto no Mapa -->
+      <div id="noiseNotification" class="noise-ping hidden">
+        <div class="ping-icon">⚠️</div>
+        <div class="ping-text">RUÍDO DETECTADO!</div>
+      </div>
+
+      <!-- Prompt de Interação no Centro da Tela -->
+      <div id="interactionPrompt" class="interaction-prompt hidden">
+        <span class="key-badge">E</span>
+        <span id="promptText" class="prompt-text">Carregar Sobrevivente</span>
+      </div>
+
+      <!-- Overlay de HUD do Assassino -->
       <div id="hudOverlay" class="hud-layer hidden">
+        <!-- Status Superior -->
         <div class="hud-top">
-          <div class="stat-box">
-            <span class="stat-label">PONTOS</span>
-            <span id="hudScore" class="stat-value">000000</span>
+          <div class="stat-box horror-box">
+            <span class="stat-label">GERADORES RESTANTES</span>
+            <span id="hudGens" class="stat-value highlight-red">5 / 5</span>
           </div>
-          <div class="stat-box">
-            <span class="stat-label">ONDA</span>
-            <span id="hudWave" class="stat-value">1</span>
+          <div class="stat-box horror-box">
+            <span class="stat-label">PORTÕES DE SAÍDA</span>
+            <span id="hudGates" class="stat-value">BLOQUEADOS</span>
           </div>
-          <div class="stat-box">
-            <span class="stat-label">MULTIPLICADOR</span>
-            <span id="hudMultiplier" class="stat-value">x1.0</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-label">RECORD</span>
-            <span id="hudHighScore" class="stat-value">000000</span>
+          <div class="stat-box horror-box">
+            <span class="stat-label">MODO</span>
+            <span class="stat-value">ASSASSINO (1ª PESSOA)</span>
           </div>
         </div>
 
-        <div class="hud-bottom">
-          <div class="health-bar-container">
-            <span class="bar-label">ESCUDO DA NAVE</span>
-            <div class="bar-track">
-              <div id="healthFill" class="bar-fill health-fill" style="width: 100%;"></div>
+        <!-- Cards dos 4 Sobreviventes na Esquerda -->
+        <div class="survivors-status-panel">
+          <div class="survivor-card" id="survivorCard1">
+            <div class="survivor-avatar">👤</div>
+            <div class="survivor-info">
+              <span class="survivor-name">Sobrevivente #1</span>
+              <span class="survivor-health health-healthy">Saudável</span>
+              <div class="hook-dots">
+                <span class="dot"></span><span class="dot"></span>
+              </div>
             </div>
           </div>
-          <div class="energy-bar-container">
-            <span class="bar-label">ENERGIA DO LASER</span>
-            <div class="bar-track">
-              <div id="energyFill" class="bar-fill energy-fill" style="width: 100%;"></div>
+          <div class="survivor-card" id="survivorCard2">
+            <div class="survivor-avatar">👤</div>
+            <div class="survivor-info">
+              <span class="survivor-name">Sobrevivente #2</span>
+              <span class="survivor-health health-healthy">Saudável</span>
+              <div class="hook-dots">
+                <span class="dot"></span><span class="dot"></span>
+              </div>
             </div>
           </div>
+          <div class="survivor-card" id="survivorCard3">
+            <div class="survivor-avatar">👤</div>
+            <div class="survivor-info">
+              <span class="survivor-name">Sobrevivente #3</span>
+              <span class="survivor-health health-healthy">Saudável</span>
+              <div class="hook-dots">
+                <span class="dot"></span><span class="dot"></span>
+              </div>
+            </div>
+          </div>
+          <div class="survivor-card" id="survivorCard4">
+            <div class="survivor-avatar">👤</div>
+            <div class="survivor-info">
+              <span class="survivor-name">Sobrevivente #4</span>
+              <span class="survivor-health health-healthy">Saudável</span>
+              <div class="hook-dots">
+                <span class="dot"></span><span class="dot"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dicas de Controle Inferiores -->
+        <div class="hud-bottom-hints">
+          <div class="hint-item"><kbd>Clique Esq.</kbd> Atacar</div>
+          <div class="hint-item"><kbd>E</kbd> Interagir / Gancho / Mori</div>
+          <div class="hint-item"><kbd>Espaço</kbd> Destruir Pallet / Janela</div>
+          <div class="hint-item"><kbd>WASD</kbd> Mover</div>
         </div>
       </div>
 
-      <!-- Tela Inicial / Menu Principal -->
+      <!-- Menu Principal do Jogo -->
       <div id="menuOverlay" class="overlay-screen active">
-        <div class="glass-card menu-card">
-          <div class="hero-badge">JOGO WEB ARCADE</div>
-          <h2 class="hero-title">CYBER DEFENDER</h2>
-          <p class="hero-subtitle">Defenda a galáxia cibernética contra hordas de drones invasores. Pontue alto, destrua chefões e domine a tabela!</p>
+        <div class="glass-card menu-card horror-card">
+          <div class="hero-badge horror-badge">SURVIVAL HORROR ASSIMÉTRICO 1v4</div>
+          <h2 class="hero-title horror-title">PROJECT HUNT</h2>
+          <p class="hero-subtitle">Você é o Assassino. Sua missão é caçar e eliminar os 4 sobreviventes antes que reparem 5 geradores e abram os portões de fuga.</p>
 
           <div class="controls-guide">
-            <h3>Controles:</h3>
-            <div class="key-grid">
-              <div class="key-item"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ou <kbd>Setas</kbd> <span>Mover Nave</span></div>
-              <div class="key-item"><kbd>Espaço</kbd> ou <kbd>Clique Esq.</kbd> <span>Atirar</span></div>
-              <div class="key-item"><kbd>Shift</kbd> <span>Super Boost</span></div>
-              <div class="key-item"><kbd>P</kbd> ou <kbd>Esc</kbd> <span>Pausar</span></div>
-            </div>
+            <h3>Regras do Assassino:</h3>
+            <ul class="rules-list">
+              <li><strong>1º Golpe:</strong> Sobrevivente fica Ferido.</li>
+              <li><strong>2º Golpe:</strong> Sobrevivente cai no chão (Caído).</li>
+              <li><strong>Interagir (E):</strong> Pegue o sobrevivente caído e carregue até um <strong>Gancho</strong>.</li>
+              <li><strong>Ganchos & Mori:</strong> No 1º e 2º gancho a vítima fica vulnerável. A partir do 2º gancho, você pode executar instantaneamente o <strong>Mori</strong>!</li>
+              <li><strong>Quebrar Pallets (Espaço):</strong> Sobreviventes derrubam pallets para te parar. Destrua-os!</li>
+            </ul>
           </div>
 
           <div class="action-buttons">
-            <button id="btnStartGame" class="btn btn-primary btn-lg">
-              🚀 INICIAR JOGO
+            <button id="btnStartGame" class="btn btn-primary btn-lg btn-horror">
+              🔪 INICIAR CAÇADA (3D)
             </button>
           </div>
         </div>
@@ -107,68 +160,62 @@
 
       <!-- Tela de Pausa -->
       <div id="pauseOverlay" class="overlay-screen hidden">
-        <div class="glass-card dialog-card">
-          <h2>JOGO PAUSADO</h2>
-          <p>Pressione <kbd>P</kbd> para retomar ou escolha uma opção abaixo:</p>
+        <div class="glass-card dialog-card horror-card">
+          <h2 class="horror-title">CAÇADA PAUSADA</h2>
+          <p>Clique no jogo ou pressione <kbd>P</kbd> para desbloquear o mouse e retornar.</p>
           <div class="action-buttons vertical">
-            <button id="btnResume" class="btn btn-primary btn-md">▶ Continuar</button>
-            <button id="btnRestartPause" class="btn btn-secondary btn-md">🔄 Reiniciar</button>
+            <button id="btnResume" class="btn btn-primary btn-md btn-horror">▶ Retomar Caçada</button>
+            <button id="btnRestartPause" class="btn btn-secondary btn-md">🔄 Reiniciar Partida</button>
             <button id="btnQuitMenu" class="btn btn-danger btn-md">🏠 Menu Principal</button>
           </div>
         </div>
       </div>
 
-      <!-- Tela de Game Over -->
+      <!-- Tela de Fim de Jogo (Game Over / Vitória) -->
       <div id="gameOverOverlay" class="overlay-screen hidden">
-        <div class="glass-card dialog-card">
-          <h2 class="title-danger">MISSÃO FALHOU</h2>
-          <p>Sua nave foi destruída em combate!</p>
-          
+        <div class="glass-card dialog-card horror-card">
+          <h2 id="endTitle" class="horror-title">TODOS OS SOBREVIVENTES ELIMINADOS!</h2>
+          <p id="endSubtitle">Nenhum sobrevivente escapou do mapa.</p>
+
           <div class="score-summary">
             <div class="summary-item">
-              <span>Pontuação Final:</span>
-              <strong id="finalScore">0</strong>
+              <span>Sobreviventes Mortos:</span>
+              <strong id="finalKills" class="highlight-red">4 / 4</strong>
             </div>
             <div class="summary-item">
-              <span>Ondas Sobrevividas:</span>
-              <strong id="finalWave">0</strong>
+              <span>Geradores Concluídos:</span>
+              <strong id="finalGens">0 / 5</strong>
             </div>
             <div class="summary-item">
-              <span>Novo Recorde:</span>
-              <strong id="newRecordBadge">NÃO</strong>
+              <span>Tempo de Partida:</span>
+              <strong id="finalTime">00:00</strong>
             </div>
           </div>
 
           <div class="action-buttons">
-            <button id="btnRestartGame" class="btn btn-primary btn-lg">🔄 JOGAR NOVAMENTE</button>
+            <button id="btnRestartGame" class="btn btn-primary btn-lg btn-horror">🔄 JOGAR NOVAMENTE</button>
             <button id="btnGameOverMenu" class="btn btn-secondary btn-lg">🏠 MENU</button>
           </div>
         </div>
       </div>
 
-      <!-- Modal de Especificações do GDD -->
+      <!-- Modal GDD -->
       <div id="gddModal" class="modal-backdrop hidden">
-        <div class="glass-card modal-card">
+        <div class="glass-card modal-card horror-card">
           <div class="modal-header">
-            <h2>📋 Game Design Document (GDD) & Personalização</h2>
+            <h2>📋 Game Design Document (Project Hunt v1.0)</h2>
             <button id="btnCloseGDD" class="close-btn">&times;</button>
           </div>
           <div class="modal-body">
-            <p>Este jogo foi desenvolvido com arquitetura modular de alta performance. Caso você queira adaptar o jogo para as especificações exatas do seu GDD, todos os sistemas são configuráveis:</p>
-
             <div class="gdd-section">
-              <h3>🎮 Estrutura de Mecânicas Atuais</h3>
+              <h3>🎮 Visão Geral do GDD</h3>
               <ul>
-                <li><strong>Gênero:</strong> Arcade Space Shooter 2D com física suave e partículas.</li>
-                <li><strong>Sistemas de Entidades:</strong> Jogador, Tiros, Inimigos (Scout, Heavy, Boss) e Power-ups (Escudo, Laser Triplo, Boost).</li>
-                <li><strong>Áudio Dinâmico:</strong> Sintetizado via Web Audio API (não necessita carregar arquivos MP3/WAV externos).</li>
-                <li><strong>Salva de Progresso:</strong> Recordes mantidos via LocalStorage.</li>
+                <li><strong>Gênero:</strong> Terror Assimétrico 1v4 (Inspirado em Dead by Daylight e Identity V).</li>
+                <li><strong>Assassino:</strong> 4.6 m/s, ataca, carrega e coloca em ganchos. Executa "Mori" após o 2º gancho.</li>
+                <li><strong>Sobreviventes (IA):</strong> 4 bots autônomos com FSM (Patrulhar ➔ Reparar ➔ Fugir ➔ Salvar aliados).</li>
+                <li><strong>Mapa 3D:</strong> 5 Geradores, 8 Ganchos, 12 Pallets, 10 Janelas e 2 Portões de Saída.</li>
+                <li><strong>QTE Skill Check:</strong> Explosões de gerador notificam visualmente a posição ao assassino.</li>
               </ul>
-            </div>
-
-            <div class="gdd-section">
-              <h3>⚙️ Como aplicar seu GDD personalizado:</h3>
-              <p>Você pode alterar os parâmetros de velocidade, vida, cores e comportamento direto nos arquivos JavaScript dentro de <code>src/js/entities.js</code> e <code>src/js/game.js</code>.</p>
             </div>
           </div>
           <div class="modal-footer">
@@ -177,32 +224,33 @@
         </div>
       </div>
 
-      <!-- Modal de Instruções do Git e Rollback -->
+      <!-- Modal Git / Rollback -->
       <div id="gitModal" class="modal-backdrop hidden">
-        <div class="glass-card modal-card">
+        <div class="glass-card modal-card horror-card">
           <div class="modal-header">
-            <h2>🔄 Como Funciona o Sistema de Rollback & Git</h2>
+            <h2>🔄 Controle de Versão e Rollback (Git)</h2>
             <button id="btnCloseGit" class="close-btn">&times;</button>
           </div>
           <div class="modal-body">
-            <p>Seu projeto conta com histórico de versões comitadas via Git na pasta <code>C:\Users\Aluno\Documents\GitHub\jogo</code>. Caso você altere o código e queira **voltar a uma versão funcional**, siga as instruções:</p>
+            <p>Seu projeto possui duas versões principais salvas no Git:</p>
+            <ul>
+              <li><code>v1.0.0-arcade</code>: Jogo 2D Arcade Space Shooter inicial.</li>
+              <li><code>v2.0.0-project-hunt</code>: Jogo 3D de Terror Assimétrico Project Hunt.</li>
+            </ul>
 
             <div class="code-block">
-              <h4>1. Ver histórico de edições comitadas:</h4>
-              <pre><code>git log --oneline</code></pre>
+              <h4>Comandos para alternar/restaurar versões:</h4>
+              <pre><code># Alternar para o jogo 2D arcade antigo:
+git checkout v1.0.0-arcade
 
-              <h4>2. Cancelar alterações locais não salvas:</h4>
-              <pre><code>git reset --hard HEAD</code></pre>
+# Voltar para o Project Hunt 3D:
+git checkout v2.0.0-project-hunt
 
-              <h4>3. Restaurar uma versão marcada por tag (ex: v1.0.0):</h4>
-              <pre><code>git checkout v1.0.0</code></pre>
-
-              <h4>4. Enviar o jogo pronto para o seu repositório no GitHub:</h4>
-              <pre><code>git add .
-git commit -m "feat: versão final do jogo"
+# Fazer upload para o seu repositório no GitHub:
+git add .
+git commit -m "feat: versão final Project Hunt 3D"
 git remote add origin https://github.com/SEU-USUARIO/SEU-REPOSISTORIO.git
-git branch -M main
-git push -u origin main</code></pre>
+git push -u origin main --tags</code></pre>
             </div>
           </div>
           <div class="modal-footer">
@@ -214,14 +262,14 @@ git push -u origin main</code></pre>
 
     <!-- Rodapé -->
     <footer class="app-footer">
-      <p>Desenvolvido com HTML5 Canvas & Vanilla JS • Repositório Git Ativo • Pronto para GitHub Pages</p>
+      <p>Project Hunt v2.0.0 • Three.js WebGL 3D • Repositório Git Ativo • Pronto para GitHub Pages</p>
     </footer>
   </div>
 
-  <!-- Scripts do Jogo -->
+  <!-- Scripts JavaScript do Project Hunt -->
   <script src="src/js/audio.js"></script>
-  <script src="src/js/particles.js"></script>
+  <script src="src/js/map.js"></script>
   <script src="src/js/entities.js"></script>
-  <script src="src/js/game.js"></script>
+  <script src="src/js/game3d.js"></script>
 </body>
 </html>

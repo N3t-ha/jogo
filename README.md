@@ -1,79 +1,81 @@
-# ⚡ Cyber Defender - Jogo Web Arcade Sci-Fi
+# 🩸 Project Hunt (v2.0.0) - Survival Horror 3D Assimétrico 1v4
 
-**Cyber Defender** é um jogo web arcade 2D retro-futurista construído com HTML5 Canvas e JavaScript puro. O projeto conta com arquitetura modular, sistema de partículas, gerador de som procedural via Web Audio API e é totalmente compatível com **GitHub Pages**.
+**Project Hunt** é um jogo de terror assimétrico em 3D (WebGL / Three.js) onde você controla o **Assassino** em primeira pessoa e caça 4 **Sobreviventes** controlados por Inteligência Artificial (FSM) antes que reparem os 5 geradores e abram os portões de saída.
 
----
-
-## 🎮 Como Jogar
-
-1. Abra o arquivo [`index.html`](file:///C:/Users/Aluno/Documents/GitHub/jogo/index.html) diretamente no seu navegador ou rode um servidor local (`npx serve .` ou Live Server).
-2. **Controles**:
-   - <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> ou <kbd>Setas</kbd>: Mover a nave.
-   - <kbd>Espaço</kbd> ou <kbd>Clique Esquerdo</kbd>: Atirar.
-   - <kbd>Shift</kbd>: Super Boost (Consome energia).
-   - <kbd>P</kbd> ou <kbd>Esc</kbd>: Pausar / Retomar.
+Inspirado em jogos como *Dead by Daylight*, *Friday the 13th* e *Identity V*.
 
 ---
 
-## 🔄 Sistema de Controle de Versão & Rollback (Como voltar uma versão)
+## 🎮 Controles do Assassino
 
-Este repositório utiliza o **Git** para salvaguardar cada etapa do desenvolvimento. Se algo der errado durante o desenvolvimento ou personalização do seu GDD, você pode restaurar uma versão funcional facilmente:
+- <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>: Mover o Assassino (Velocidade: 4.6 m/s).
+- <kbd>Mouse</kbd>: Olhar em 1ª pessoa (Trava o ponteiro com PointerLock API).
+- <kbd>Clique Esquerdo</kbd>: Ataque de lâmina.
+  - **1º Golpe**: Deixa o sobrevivente **Ferido**.
+  - **2º Golpe**: Deixa o sobrevivente **Caído** no chão.
+- <kbd>E</kbd>: Interagir:
+  - **Carregar**: Pega um sobrevivente caído no chão e o carrega no ombro.
+  - **Colocar no Gancho**: Pendura o sobrevivente em um dos 8 Ganchos de Sacrifício.
+  - **Mori (Execução Instantânea)**: Se o sobrevivente já foi pendurado no gancho 2 vezes (`Hook Count >= 2`), aperte <kbd>E</kbd> sobre ele caído para executá-lo instantaneamente!
+- <kbd>Espaço</kbd>: Destruir Pallets de madeira derrubados / Salto em Janelas.
+- <kbd>P</kbd> ou <kbd>Esc</kbd>: Pausar partida.
 
-### 1. Ver o Histórico de Versões / Commits
+---
+
+## ⚙️ Regras do Jogo & GDD (v1.0)
+
+- **Objetivo do Assassino**: Eliminar todos os 4 sobreviventes antes que eles escapem.
+- **Objetivo dos Sobreviventes (IA)**: Reparar 5 Geradores ➔ Energizar os 2 Portões de Saída ➔ Escapar.
+- **Skill Checks & Explosões**: Quando os sobreviventes falham no teste de habilidade durante o reparo de um gerador, uma notificação visual vermelha com aviso sonoro é enviada para a tela do Assassino!
+
+---
+
+## 🔄 Sistema de Controle de Versão e Rollback (Git Tags)
+
+Este repositório possui duas marcas de versão estáveis salvas no Git:
+- **`v1.0.0-arcade`**: Jogo 2D Arcade Space Shooter inicial.
+- **`v2.0.0-project-hunt`**: Jogo 3D de Terror Assimétrico 1v4 (Project Hunt).
+
+### Comandos de Rollback:
 ```bash
-git log --oneline
-```
+# Alternar para o jogo 2D arcade:
+git checkout v1.0.0-arcade
 
-### 2. Descartar edições não salvas (Voltar para o último commit limpo)
-```bash
+# Voltar para o Project Hunt 3D:
+git checkout v2.0.0-project-hunt
+
+# Descartar alterações locais não salvas:
 git reset --hard HEAD
-```
-
-### 3. Restaurar uma Tag de Versão Específica
-```bash
-git checkout v1.0.0
-```
-
-### 4. Marcar uma Nova Versão Estável (Tag)
-```bash
-git tag -a v1.1.0 -m "Descrição da nova versão"
 ```
 
 ---
 
 ## 🚀 Como Fazer o Upload para o GitHub & GitHub Pages
 
-Para colocar o seu jogo online no GitHub para que qualquer pessoa possa jogar:
+Para publicar este jogo online e permitir que qualquer pessoa jogue via navegador:
 
 ```bash
-# 1. Adicionar todos os arquivos e comitar
+cd C:\Users\Aluno\Documents\GitHub\jogo
+
+# 1. Adicionar e comitar arquivos
 git add .
-git commit -m "feat: versão inicial do Cyber Defender pronta para publicação"
+git commit -m "feat: versão final Project Hunt 3D (GDD 1v4)"
 
-# 2. Conectar com o seu repositório no GitHub (Substitua a URL abaixo pela sua URL do GitHub)
+# 2. Enviar a tag da versão
+git tag -a v2.0.0-project-hunt -m "Versao 2.0.0 Project Hunt 3D"
+
+# 3. Enviar para o repositório remoto (Substitua pela sua URL do GitHub)
 git remote add origin https://github.com/SEU-USUARIO/SEU-REPOSISTORIO.git
-
-# 3. Garantir a branch principal 'main' e enviar os arquivos
 git branch -M main
-git push -u origin main
+git push -u origin main --tags
 ```
 
-### Como Ativar o GitHub Pages (Jogo Grátis Online)
-1. Vá no seu repositório no GitHub.
-2. Acesse **Settings (Configurações)** > **Pages**.
+### Como Ativar no GitHub Pages
+1. Acesse o seu repositório no GitHub.
+2. Vá em **Settings** > **Pages**.
 3. Em **Source**, selecione a branch `main` e a pasta `/ (root)`.
-4. Clique em **Save**. Seu jogo estará online em alguns segundos no link: `https://SEU-USUARIO.github.io/SEU-REPOSISTORIO/`.
+4. Clique em **Save**. Seu jogo estará online em instantes no link `https://SEU-USUARIO.github.io/SEU-REPOSISTORIO/`.
 
 ---
 
-## 🛠️ Personalizando com o seu GDD
-
-O código do jogo foi separado em módulos claros dentro de `src/js/`:
-- `src/js/entities.js`: Contém as velocidades, vidas e danos das naves, armas e inimigos.
-- `src/js/game.js`: Contém as regras do jogo, pontuações, ondas e taxas de spawn.
-- `src/js/audio.js`: Sintetizador de efeitos sonoros.
-- `src/js/particles.js`: Efeitos visuais e cores do espaço.
-
----
-
-*Desenvolvido em HTML5 Canvas & Vanilla JS.*
+*Desenvolvido em HTML5, Three.js WebGL & Vanilla JS.*
